@@ -1,6 +1,6 @@
 cask "nicepage" do
   version "4.7.1"
-  sha256 "aee9534eb0fecca35f60b59d50078ff618dc634d3c40cb4a5716fb06faca603d"
+  sha256 "a1db864fe638701fa2f039c4e5bd2394bbf03489576abde46833ccef90432814"
 
   url "https://get.nicepage.com/Nicepage-#{version}.dmg"
   name "nicepage"
