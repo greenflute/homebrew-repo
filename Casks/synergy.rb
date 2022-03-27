@@ -3,7 +3,7 @@ cask "synergy" do
   sha256 "1247917397174014840f5c24b583ec76c6a7c456c0bd6065ad2337334ff84667"
 
 
-  url "https://s3.us-east-1.amazonaws.com/binaries.symless.com/synergy/v1-core-standard/#{version}-stable.218fa800/synergy_#{version}-stable.218fa800_macos_x86-64.dmg“
+  url "https://s3.us-east-1.amazonaws.com/binaries.symless.com/synergy/v1-core-standard/#{version}-stable.218fa800/synergy_#{version}-stable.218fa800_macos_x86-64.dmg"
   name "synergy"
   desc "Share one mouse and keyboard across multiple computers"
   homepage "https://symless.com/synergy"
