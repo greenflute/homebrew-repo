@@ -1,5 +1,5 @@
 cask "nicepage" do
-  version "5.3.1"
+  version "5.5.0"
 
   url "https://get.nicepage.com/Nicepage-#{version}.dmg"
   name "nicepage"
