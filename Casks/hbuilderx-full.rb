@@ -1,5 +1,5 @@
 cask "hbuilderx-full" do
-  version "3.4.7.20220422"
+  version "3.7.11.20230427"
   # sha256 "291e37b2ea283937472044ced78e9a29414ffd79e308d7c7c12fbd1cd684c819"
 
   url "https://download1.dcloud.net.cn/download/HBuilderX.#{version}.full.dmg",
