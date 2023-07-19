@@ -1,5 +1,5 @@
 cask "cctv-client" do
-  version "2.1.0.0_1001"
+  version "2.2.0.0_1001"
 
   url "https://download.cntv.cn/cbox/macv2/ysyy_v#{version}_setup.dmg"
   name "央视影音客户端桌面版"
