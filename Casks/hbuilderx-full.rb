@@ -1,4 +1,6 @@
 cask "hbuilderx-full" do
+  deprecate! date: "2023-08-01", because: :deprecated_upstream
+  
   version "3.7.11.20230427"
   # sha256 "291e37b2ea283937472044ced78e9a29414ffd79e308d7c7c12fbd1cd684c819"
 
