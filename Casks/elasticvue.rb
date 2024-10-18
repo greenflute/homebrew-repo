@@ -1,5 +1,3 @@
-https://github.com/cars10/elasticvue/releases/download/v1.0.12/elasticvue_1.0.12_x64.dmg
-https://github.com/cars10/elasticvue/releases/download/v1.0.12/elasticvue_1.0.12_aarch64.dmg
 cask "elasticvue" do
   version "1.0.12"
 
