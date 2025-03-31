@@ -1,5 +1,5 @@
 cask "elasticvue" do
-  version "1.4.0"
+  version "1.6.0"
 
   if Hardware::CPU.intel?
     url "https://github.com/cars10/elasticvue/releases/download/v#{version}/elasticvue_#{version}_x64.dmg"
