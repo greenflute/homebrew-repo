@@ -10,13 +10,11 @@ class TokcosCli < Formula
 
   on_macos do
     on_arm do
-      url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-cli/release/0.5.8/tokcos-cli-darwin-arm64.tar.gz"
-      sha256 "这里填写 0.5.8 arm64 的 SHA256"
+      url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-cli/release/#{version}/tokcos-cli-darwin-arm64.tar.gz"
     end
 
     on_intel do
-      url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-cli/release/0.5.8/tokcos-cli-darwin-x64.tar.gz"
-      sha256 "这里填写 0.5.8 x64 的 SHA256"
+      url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-cli/release/#{version}/tokcos-cli-darwin-x64.tar.gz"
     end
   end
 
