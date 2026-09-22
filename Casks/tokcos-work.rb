@@ -14,7 +14,7 @@ cask "tokcos-work" do
   sha256 :no_check
 
   name "Tokcos Work"
-  desc "Tokcos desktop application"
+  desc "Desktop app for visually building workflows, managing local MCP servers, and monitoring agent logs"
   homepage "https://www.tokcos.com/"
 
   livecheck do
