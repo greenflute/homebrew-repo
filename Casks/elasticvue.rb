@@ -12,8 +12,8 @@ cask "elasticvue" do
   homepage "https://elasticvue.com"
 
   livecheck do
-    url "https://github.com/cars10/elasticvue/releases"
-    regex(%r{href=.*?/github.com/cars10/elasticvue/releases/download/v(\d+(?:\.\d+)+)/elasticvue_(\d+(?:\.\d+)+)_#{Hardware::CPU.arch}\.dmg}i)
+    url "https://github.com/cars10/elasticvue"
+    strategy :github_latest
   end
 
   auto_updates true
