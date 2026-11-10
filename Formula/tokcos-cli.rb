@@ -3,7 +3,7 @@ class TokcosCli < Formula
 
   desc "Token-efficient AI coding assistant for the terminal"
   homepage "https://www.tokcos.com/"
-  version "2.0.4"
+  version "2.0.5"
 
   livecheck do
     url LATEST_RELEASE_URL
@@ -17,12 +17,12 @@ class TokcosCli < Formula
   on_macos do
     on_arm do
       url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-cli/release/#{version}/tokcos-cli-darwin-arm64.tar.gz"
-      sha256 "c906dc592d24f098f47128085d6df0b12e6df9d0acb49d72c9bb32c7d44fed64"
+      sha256 "171a5cca28128a5af00cf9f7cc09d3700ae806001d47cc845785edb4900f4f1a"
     end
 
     on_intel do
       url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-cli/release/#{version}/tokcos-cli-darwin-x64.tar.gz"
-      sha256 "58a563922bcaee257276a2d58b3b88ff32b1d70b92dd72455f4f2723ffc875c9"
+      sha256 "d0eb403cc49a3422fb04a402c41236786ecc04a7cc1062bd2041252c2821af83"
     end
   end
 
