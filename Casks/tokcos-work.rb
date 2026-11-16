@@ -1,14 +1,14 @@
 cask "tokcos-work" do
-  version "1.4.1"
+  version "1.4.2"
 
   on_arm do
-    sha256 "bf436c121a3454dadc591878bf8fd393965b3addd8263706a6eea3d9c94ae2ad"
+    sha256 "d4fe3af6239dcca78be6aa40777252f15ea48f26ed0b02f4fbb11e97baa7d59e"
 
     url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/" \
         "tokcos-gui/release/#{version}/Tokcos%20Work-#{version}-arm64-mac.zip"
   end
   on_intel do
-    sha256 "c95f63e651f9de63a4a29e72d11af85b352b056de74c9e54ccd45bd4b564c6dc"
+    sha256 "274198ecbf5cccdf2936c45bb288a11d25f04f328a3f4e0e304fb384addb8f46"
 
     url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/" \
         "tokcos-gui/release/#{version}/Tokcos%20Work-#{version}-x64-mac.zip"
