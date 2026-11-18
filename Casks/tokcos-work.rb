@@ -2,15 +2,15 @@ cask "tokcos-work" do
   version "1.4.21"
 
   on_arm do
-    sha256 "e1c0812fd9e06c7777bfed30d2d1f4b982f18e245381dc2d8648b8f1a607d18a"
+    sha256 "ddb68206c1fd4124c16313081cbafa4b878cc587722747736e9517a230fb5336"
 
-    url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/" \
+    url "https://tokcos-agent-1328134559.cos.eu-frankfurt.myqcloud.com/" \
         "tokcos-gui/release/#{version}/Tokcos%20Work-#{version}-arm64-mac.zip"
   end
   on_intel do
-    sha256 "fb71062c7a7df534e32e6ae7d8d7128c00cf98694376ae29c438f58f5d342440"
+    sha256 "234755076884bca3cffaa62fae621c5eae3d02712eecf24281d6afc939068329"
 
-    url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/" \
+    url "https://tokcos-agent-1328134559.cos.eu-frankfurt.myqcloud.com/" \
         "tokcos-gui/release/#{version}/Tokcos%20Work-#{version}-x64-mac.zip"
   end
 
@@ -19,7 +19,7 @@ cask "tokcos-work" do
   homepage "https://www.tokcos.com/"
 
   livecheck do
-    url "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com/tokcos-gui/release/latest.json"
+    url "https://tokcos-agent-1328134559.cos.eu-frankfurt.myqcloud.com/tokcos-gui/release/latest.json"
     strategy :json do |json|
       json["version"]
     end

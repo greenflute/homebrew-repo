@@ -45,9 +45,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 COS = "https://tokcos-1328134559.cos.ap-guangzhou.myqcloud.com"
+WORK_COS = "https://tokcos-agent-1328134559.cos.eu-frankfurt.myqcloud.com"
 UA = {"User-Agent": "greenflute-homebrew-repo-bump"}
 
-WORK_META_URL = f"{COS}/tokcos-gui/release/latest.json"
+WORK_META_URL = f"{WORK_COS}/tokcos-gui/release/latest.json"
 WORK_FILE = REPO / "Casks/tokcos-work.rb"
 CLI_META_URL = f"{COS}/tokcos-cli/release/latest.json"
 CLI_FILE = REPO / "Formula/tokcos-cli.rb"
@@ -285,7 +286,7 @@ def bump_work() -> str | None:
             info = meta["files"][platform]
             name = info["name"]  # e.g. "1.2.4/Tokcos Work-1.2.4-arm64-mac.zip"
             filename = name.split("/", 1)[-1]
-            url = f"{COS}/tokcos-gui/release/" + urllib.parse.quote(name, safe="/")
+            url = f"{WORK_COS}/tokcos-gui/release/" + urllib.parse.quote(name, safe="/")
 
             # The cask must reference the very file upstream published.  Compare its
             # `#{version}` template against the metadata name so a rename upstream
