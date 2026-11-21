@@ -25,3 +25,9 @@ The official MoonBit VS Code extension currently looks for its toolchain under
 `$MOON_HOME/bin` (default: `~/.moon/bin`) instead of using commands installed
 through Homebrew, so it does not automatically discover this installation. For
 VS Code use, let the official extension manage its own toolchain for now.
+
+## LocModel
+
+```sh
+brew install --cask locmodel
+```
