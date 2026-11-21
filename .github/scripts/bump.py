@@ -17,13 +17,23 @@ binary.  That value is treated as an identity check: if it does not match, the
 artifact is not the build the metadata describes, and the run fails rather than
 publishing an unverified package.
 
+Third-party casks (locmodel, zditor)
+------------------------------------
+Neither upstream publishes a checksum, so their casks declare `sha256 :no_check`
+and this script only moves the version number.  To keep that safe it refuses to
+touch a cask that has a real checksum (that would need the artifact downloaded and
+re-hashed), and it confirms the DMG that the new version implies is actually
+served before writing anything -- a bump that leaves a 404 in the tap is worse
+than no bump at all.
+
 Cost
 ----
 Artifacts are downloaded only when the declared version actually changed, so the
-daily run normally performs two small JSON fetches and nothing else.
+daily run normally performs two small JSON fetches, one page fetch and two HEAD
+requests, and nothing else.
 
-The two packages use two different metadata schemas, so they are handled by two
-explicit functions rather than one generic scraper.
+The packages use different metadata schemas, so they are handled by explicit
+functions rather than one generic scraper.
 """
 
 from __future__ import annotations
@@ -37,6 +47,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
@@ -52,6 +63,15 @@ WORK_META_URL = f"{WORK_COS}/tokcos-gui/release/latest.json"
 WORK_FILE = REPO / "Casks/tokcos-work.rb"
 CLI_META_URL = f"{COS}/tokcos-cli/release/latest.json"
 CLI_FILE = REPO / "Formula/tokcos-cli.rb"
+
+# LocModel has no update API; its download page embeds schema.org JSON-LD whose
+# "softwareVersion" field is the release number the page was built for.
+LOCMODEL_PAGE = "https://locmodel.com/"
+LOCMODEL_FILE = REPO / "Casks/locmodel.rb"
+
+# Zditor's Tauri updater feed advertises the version and every artifact URL.
+ZDITOR_FEED = "https://zditor.com/api/releases"
+ZDITOR_FILE = REPO / "Casks/zditor.rb"
 
 VERSION_RE = r'(?m)^(\s*version )"([^"]+)"'
 SHA256_RE = r'(?m)^(\s*sha256 )"[0-9a-f]{64}"'
@@ -84,6 +104,38 @@ def fetch_json(url: str) -> dict:
     request = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.load(response)
+
+
+def fetch_text(url: str) -> str:
+    request = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return response.read().decode("utf-8", "replace")
+
+
+def probe_artifact(url: str, what: str) -> int:
+    """Require url to be downloadable; return its Content-Length (0 if unstated).
+
+    HEAD keeps the daily run cheap, but not every CDN answers HEAD, so a failure
+    falls back to a one-byte ranged GET before giving up.
+    """
+    for method, headers in (("HEAD", {}), ("GET", {"Range": "bytes=0-0"})):
+        request = urllib.request.Request(url, headers={**UA, **headers}, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                length = int(response.headers.get("Content-Length") or 0)
+                if method == "GET":
+                    response.read(1)
+                if response.status < 400:
+                    return length
+                warn(f"{what}: {url} answered HTTP {response.status}")
+        except urllib.error.HTTPError as error:
+            if error.code in (405, 501):
+                continue  # method not allowed; try the ranged GET
+            fail(f"{what}: {url} answered HTTP {error.code}; refusing to bump")
+        except urllib.error.URLError as error:
+            fail(f"{what}: cannot reach {url}: {error.reason}")
+    fail(f"{what}: {url} is not downloadable")
+    raise AssertionError("unreachable")
 
 
 def sha256_stream(stream) -> str:
@@ -376,18 +428,128 @@ def bump_cli() -> str | None:
     return latest
 
 
+def bump_unchecked_cask(
+    path: Path, latest: str, urls: list[str], what: str
+) -> str | None:
+    """Move the version of a cask that ships `sha256 :no_check`.
+
+    Only the version literal changes.  A cask that has grown a real checksum is
+    refused: bumping its version without re-hashing the artifact would publish a
+    package that fails its own integrity check.
+    """
+    text = path.read_text(encoding="utf-8")
+    current = read_declared_version(text, what)
+
+    if current == latest:
+        log(f"{what}: already at {latest}")
+        return None
+
+    log(f"{what}: {current} -> {latest}")
+    assert_not_a_downgrade(current, latest, what)
+
+    if "sha256 :no_check" not in text:
+        fail(
+            f"{what}: this cask now declares a real sha256; bumping the version without "
+            "re-hashing the new artifact would ship a package that fails its own check. "
+            "Update it by hand and recompute the sha256"
+        )
+
+    for url in urls:
+        size = probe_artifact(url, what)
+        log(f"  {url.split('/')[-1]}: reachable ({size} bytes)")
+
+    updated, count = re.subn(VERSION_RE, lambda m: f'{m.group(1)}"{latest}"', text)
+    if count != 1:
+        fail(f"{what}: expected exactly 1 version line, found {count}")
+
+    validate_no_leftovers(updated, current, [], what)
+    path.write_text(updated, encoding="utf-8")
+    validate_ruby(path)
+    return latest
+
+
+def check_template(text: str, fragments: list[str], what: str) -> None:
+    """Fail when the cask stopped naming the artifact upstream now publishes."""
+    for fragment in fragments:
+        if fragment not in text:
+            fail(
+                f"{what}: Cask does not reference {fragment!r}; upstream renamed the "
+                f"artifact, update {what} by hand"
+            )
+
+
+# --------------------------------------------------------------------------- #
+# locmodel  (Cask, macOS)
+#
+# Nothing machine-readable is served under api/latest.json or similar; the
+# download page embeds schema.org JSON-LD with "softwareVersion", and links the
+# universal DMG explicitly.
+# --------------------------------------------------------------------------- #
+def bump_locmodel() -> str | None:
+    page = fetch_text(LOCMODEL_PAGE)
+    versions = re.findall(r'"softwareVersion"\s*:\s*"(\d+(?:\.\d+)+)"', page)
+    if not versions:
+        fail("locmodel: homepage no longer carries a schema.org softwareVersion")
+
+    latest = versions[0]
+    filename = f"LocModel_{latest}_universal.dmg"
+    if f"https://locmodel.com/{filename}" not in page:
+        fail(f"locmodel: homepage reports {latest} but does not link {filename}")
+
+    text = LOCMODEL_FILE.read_text(encoding="utf-8")
+    check_template(text, ["LocModel_#{version}_universal.dmg"], "locmodel")
+    return bump_unchecked_cask(
+        LOCMODEL_FILE, latest, [f"https://locmodel.com/{filename}"], "locmodel"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# zditor  (Cask, macOS)
+#
+# The Tauri updater feed lists the release version plus the exact artifact URL
+# for every platform, so the CDN path is taken from upstream instead of guesswork.
+# --------------------------------------------------------------------------- #
+def bump_zditor() -> str | None:
+    meta = fetch_json(ZDITOR_FEED)
+    latest = meta["version"]
+    urls: list[str] = []
+
+    for arch, key in (("aarch64", "darwin-aarch64-dmg"), ("x64", "darwin-x86_64-dmg")):
+        url = meta.get("platforms", {}).get(key, {}).get("url")
+        if not url:
+            fail(f"zditor: release feed has no {key} artifact for {latest}")
+        filename = f"zditor_{latest}_{arch}.dmg"
+        if not url.endswith(filename):
+            fail(f"zditor: {key} points at {url}, expected it to end with {filename}")
+        urls.append(url)
+
+    text = ZDITOR_FILE.read_text(encoding="utf-8")
+    check_template(
+        text,
+        ["zditor_#{version}_aarch64.dmg", "zditor_#{version}_x64.dmg"],
+        "zditor",
+    )
+    return bump_unchecked_cask(ZDITOR_FILE, latest, urls, "zditor")
+
+
 def main() -> int:
     work = bump_work()
     cli = bump_cli()
+    locmodel = bump_locmodel()
+    zditor = bump_zditor()
 
     set_output("work_changed", "true" if work else "false")
     set_output("work_version", work or "")
     set_output("cli_changed", "true" if cli else "false")
     set_output("cli_version", cli or "")
-    set_output("changed", "true" if (work or cli) else "false")
+    set_output("locmodel_changed", "true" if locmodel else "false")
+    set_output("locmodel_version", locmodel or "")
+    set_output("zditor_changed", "true" if zditor else "false")
+    set_output("zditor_version", zditor or "")
+    set_output("changed", "true" if (work or cli or locmodel or zditor) else "false")
 
-    if not work and not cli:
-        log("All Tokcos Homebrew packages are already up to date.")
+    if not any((work, cli, locmodel, zditor)):
+        log("All Homebrew packages are already up to date.")
     return 0
 
 

@@ -1,7 +1,11 @@
 name: Bump package versions
 
-# Keeps the Cask/Formula in this tap in step with the upstream Tokcos releases,
-# so `brew update && brew upgrade` finds new versions without manual editing.
+# Keeps the Cask/Formula in this tap in step with the upstream releases, so
+# `brew update && brew upgrade` finds new versions without manual editing.
+#
+# Tracked packages: tokscos-work, tokscos-cli (checksums recomputed from the
+# served artifacts) and locmodel, zditor (upstream publishes no checksum, so
+# only the version moves and the new download URL is probed first).
 #
 # Why 03:17 UTC and not 03:00: GitHub documents that scheduled runs are delayed
 # when the platform is busy, and that "high load times include the start of every
@@ -52,6 +56,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add Formula/tokcos-cli.rb
           git commit -m "Update tokscos-cli to ${{ steps.bump.outputs.cli_version }}"
+
+      - name: Commit locmodel bump
+        if: steps.bump.outputs.locmodel_changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/locmodel.rb
+          git commit -m "Update LocModel to ${{ steps.bump.outputs.locmodel_version }}"
+
+      - name: Commit zditor bump
+        if: steps.bump.outputs.zditor_changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/zditor.rb
+          git commit -m "Update Zditor to ${{ steps.bump.outputs.zditor_version }}"
 
       - name: Push
         if: steps.bump.outputs.changed == 'true'
