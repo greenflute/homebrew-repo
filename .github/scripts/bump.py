@@ -47,6 +47,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -100,41 +101,96 @@ def set_output(name: str, value: str) -> None:
         handle.write(f"{name}={value}\n")
 
 
+#: How many times one request may be attempted before the run gives up.
+MAX_ATTEMPTS = 4
+#: Backoff before attempt 2, 3 and 4.
+BACKOFF_SECONDS = (5, 15, 45)
+
+
+def is_transient(error: BaseException) -> bool:
+    """Whether a failure is worth retrying.
+
+    Client errors are not: a 404 stays a 404, and reporting a wrong URL straight
+    away beats discovering it after two minutes of backing off.  Request timeouts
+    (408) and rate limits (429) are the exceptions.  Everything else -- TLS
+    handshake timeouts, connection resets, 5xx, a truncated body that fails to
+    parse -- is a network blip until proven otherwise.
+    """
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code >= 500 or error.code in (408, 429)
+    return True
+
+
+def with_retry(what: str, action):
+    """Run `action`, retrying transient failures with a growing backoff.
+
+    Runners intermittently time out the TLS handshake to these CDNs (the same
+    class of failure that hit the scoop and chocolatey taps on 2026-11-21:
+    `_ssl.c:1063: The handshake operation timed out`).  A single blip used to
+    fail the whole run even though an immediate retry succeeds, so every network
+    request goes through here.  `SystemExit` from fail() is not an Exception and
+    therefore still ends the run immediately.
+    """
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            return action()
+        except Exception as error:  # noqa: BLE001 -- classified by is_transient()
+            if attempt == MAX_ATTEMPTS or not is_transient(error):
+                raise
+            delay = BACKOFF_SECONDS[attempt - 1]
+            warn(
+                f"{what}: {type(error).__name__}: {error} "
+                f"(attempt {attempt}/{MAX_ATTEMPTS}); retrying in {delay}s"
+            )
+            time.sleep(delay)
+
+
 def fetch_json(url: str) -> dict:
-    request = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)
+    def attempt() -> dict:
+        request = urllib.request.Request(url, headers=UA)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.load(response)
+
+    return with_retry(f"GET {url}", attempt)
 
 
 def fetch_text(url: str) -> str:
-    request = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return response.read().decode("utf-8", "replace")
+    def attempt() -> str:
+        request = urllib.request.Request(url, headers=UA)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.read().decode("utf-8", "replace")
+
+    return with_retry(f"GET {url}", attempt)
+
+
+def _probe_once(url: str) -> int:
+    """One probe; return Content-Length, or 0 when the size is not reported.
+
+    HEAD keeps the daily run cheap, but not every CDN answers it, so 405/501
+    falls back to a one-byte ranged GET.
+    """
+    try:
+        request = urllib.request.Request(url, headers=UA, method="HEAD")
+        with urllib.request.urlopen(request, timeout=120) as response:
+            return int(response.headers.get("Content-Length") or 0)
+    except urllib.error.HTTPError as error:
+        if error.code not in (405, 501):
+            raise
+
+    request = urllib.request.Request(url, headers={**UA, "Range": "bytes=0-0"})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        response.read(1)
+    return 0
 
 
 def probe_artifact(url: str, what: str) -> int:
-    """Require url to be downloadable; return its Content-Length (0 if unstated).
-
-    HEAD keeps the daily run cheap, but not every CDN answers HEAD, so a failure
-    falls back to a one-byte ranged GET before giving up.
-    """
-    for method, headers in (("HEAD", {}), ("GET", {"Range": "bytes=0-0"})):
-        request = urllib.request.Request(url, headers={**UA, **headers}, method=method)
-        try:
-            with urllib.request.urlopen(request, timeout=120) as response:
-                length = int(response.headers.get("Content-Length") or 0)
-                if method == "GET":
-                    response.read(1)
-                if response.status < 400:
-                    return length
-                warn(f"{what}: {url} answered HTTP {response.status}")
-        except urllib.error.HTTPError as error:
-            if error.code in (405, 501):
-                continue  # method not allowed; try the ranged GET
-            fail(f"{what}: {url} answered HTTP {error.code}; refusing to bump")
-        except urllib.error.URLError as error:
-            fail(f"{what}: cannot reach {url}: {error.reason}")
-    fail(f"{what}: {url} is not downloadable")
+    """Require url to be downloadable; return its Content-Length (0 if unstated)."""
+    try:
+        return with_retry(f"HEAD {url}", lambda: _probe_once(url))
+    except urllib.error.HTTPError as error:
+        fail(f"{what}: {url} answered HTTP {error.code}; refusing to bump")
+    except urllib.error.URLError as error:
+        fail(f"{what}: cannot reach {url}: {error.reason}")
     raise AssertionError("unreachable")
 
 
@@ -147,15 +203,20 @@ def sha256_stream(stream) -> str:
 
 def download(url: str, dest: Path) -> tuple[str, int]:
     """Download url to dest; return (sha256 hex, byte count)."""
-    request = urllib.request.Request(url, headers=UA)
-    digest = hashlib.sha256()
-    size = 0
-    with urllib.request.urlopen(request, timeout=900) as response, dest.open("wb") as handle:
-        while chunk := response.read(1 << 20):
-            handle.write(chunk)
-            digest.update(chunk)
-            size += len(chunk)
-    return digest.hexdigest(), size
+
+    def attempt() -> tuple[str, int]:
+        request = urllib.request.Request(url, headers=UA)
+        digest = hashlib.sha256()
+        size = 0
+        # "wb" truncates, so a retry after a half-written body starts clean.
+        with urllib.request.urlopen(request, timeout=900) as response, dest.open("wb") as handle:
+            while chunk := response.read(1 << 20):
+                handle.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
+        return digest.hexdigest(), size
+
+    return with_retry(f"GET {url}", attempt)
 
 
 def sha256_tar_member(archive: Path, member: str) -> str:
@@ -456,7 +517,8 @@ def bump_unchecked_cask(
 
     for url in urls:
         size = probe_artifact(url, what)
-        log(f"  {url.split('/')[-1]}: reachable ({size} bytes)")
+        detail = f"{size} bytes" if size else "size not reported"
+        log(f"  {url.split('/')[-1]}: reachable ({detail})")
 
     updated, count = re.subn(VERSION_RE, lambda m: f'{m.group(1)}"{latest}"', text)
     if count != 1:
