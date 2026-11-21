@@ -1,5 +1,5 @@
 cask "locmodel" do
-  version "3.5.0"
+  version "3.5.1"
   sha256 :no_check # The official download page does not publish a checksum.
 
   url "https://locmodel.com/LocModel_#{version}_universal.dmg"
@@ -8,8 +8,8 @@ cask "locmodel" do
   homepage "https://locmodel.com/"
 
   livecheck do
-    url "https://locmodel.com/changelog.html"
-    regex(/v(\d+(?:\.\d+)+)\s+LATEST/i)
+    url :url
+    regex(/LocModel_(\d+(?:\.\d+)+)_universal\.dmg/i)
   end
 
   depends_on :macos
