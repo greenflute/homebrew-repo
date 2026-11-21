@@ -31,3 +31,9 @@ VS Code use, let the official extension manage its own toolchain for now.
 ```sh
 brew install --cask locmodel
 ```
+
+## Zditor
+
+```sh
+brew install --cask zditor
+```
