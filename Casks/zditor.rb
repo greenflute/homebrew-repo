@@ -1,5 +1,5 @@
 cask "zditor" do
-  version "2.0.9"
+  version "2.0.10"
   sha256 :no_check # The official release metadata does not publish SHA256 checksums.
 
   on_arm do
