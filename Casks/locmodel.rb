@@ -1,5 +1,5 @@
 cask "locmodel" do
-  version "3.6.2"
+  version "3.6.5"
   sha256 :no_check # The official download page does not publish a checksum.
 
   url "https://locmodel.com/LocModel_#{version}_universal.dmg"
